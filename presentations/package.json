@@ -1,0 +1,16 @@
+{
+  "name": "presentations",
+  "version": "1.0.0",
+  "description": "Reveal.js deck about React server-side streaming",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "echo \"No tests configured\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "reveal.js": "^6.0.0"
+  }
+}

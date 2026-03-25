@@ -1,0 +1,61 @@
+{
+  "name": "perf-test",
+  "version": "1.0.0",
+  "description": "Fastify + React 19 SSR performance benchmark",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:express": "tsx watch src/express-server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "start:express": "tsx src/express-server.ts",
+    "benchmark": "tsx src/scripts/run-local-benchmark.ts compare",
+    "benchmark:string": "tsx src/scripts/run-local-benchmark.ts string",
+    "benchmark:stream": "tsx src/scripts/run-local-benchmark.ts stream",
+    "benchmark:express": "SERVER_KIND=express tsx src/scripts/run-local-benchmark.ts compare",
+    "benchmark:express:string": "SERVER_KIND=express tsx src/scripts/run-local-benchmark.ts string",
+    "benchmark:express:stream": "SERVER_KIND=express tsx src/scripts/run-local-benchmark.ts stream",
+    "benchmark:hosted": "tsx src/scripts/benchmark.ts compare",
+    "cpu-profile:string": "tsx src/scripts/cpu-profile.ts string",
+    "cpu-profile:stream": "tsx src/scripts/cpu-profile.ts stream",
+    "cpu-profile:express:string": "SERVER_KIND=express tsx src/scripts/cpu-profile.ts string",
+    "cpu-profile:express:stream": "SERVER_KIND=express tsx src/scripts/cpu-profile.ts stream",
+    "cpu-profile:all": "tsx src/scripts/run-all-profiles.ts cpu-profile",
+    "flamegraph:string": "tsx src/scripts/profile.ts string",
+    "flamegraph:stream": "tsx src/scripts/profile.ts stream",
+    "flamegraph:express:string": "SERVER_KIND=express tsx src/scripts/profile.ts string",
+    "flamegraph:express:stream": "SERVER_KIND=express tsx src/scripts/profile.ts stream",
+    "flamegraph:all": "tsx src/scripts/run-all-profiles.ts flamegraph"
+  },
+  "keywords": [
+    "fastify",
+    "react",
+    "ssr",
+    "benchmark",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "fastify": "^5.8.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/autocannon": "^7.12.7",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "0x": "^6.0.0",
+    "autocannon": "^8.0.0",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

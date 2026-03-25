@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React Server-Side Streaming</title>
+    <link rel="stylesheet" href="node_modules/reveal.js/dist/reveal.css" />
+    <link rel="stylesheet" href="node_modules/reveal.js/dist/theme/black.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section class="hero">
+          <div class="eyebrow">React rendering strategy</div>
+          <h1>Server-Side Streaming</h1>
+          <p class="lede">
+            How React moved from blocking SSR to progressive server rendering.
+          </p>
+          <div class="hero-grid">
+            <div class="stat-card">
+              <div class="stat-label">Focus</div>
+              <div class="stat-value">Why old SSR stalled</div>
+              <div class="stat-note">TTFB, blocking data dependencies, and the client-fetch workaround</div>
+            </div>
+            <div class="stat-card accent">
+              <div class="stat-label">Outcome</div>
+              <div class="stat-value">How streaming fixes it</div>
+              <div class="stat-note">Early shell, streamed boundaries, and better server-side delivery</div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow">Step 1</div>
+          <h2>How traditional SSR works</h2>
+          <div class="two-col">
+            <div>
+              <p>
+                In classic SSR, the browser asks for a page and the server does all
+                blocking work before it sends the first byte back.
+              </p>
+              <ol class="tight-list">
+                <li>Browser requests the route</li>
+                <li>Server fetches all required APIs</li>
+                <li>Server renders the full tree to HTML</li>
+                <li>HTML is sent as one response</li>
+              </ol>
+            </div>
+            <div class="flow-card">
+              <div class="flow-rail">
+                <div class="flow-box browser-box">Request</div>
+                <div class="flow-link inbound">
+                  <div class="flow-pulse pulse-request"></div>
+                </div>
+                <div class="flow-box server-box">Server</div>
+                <div class="flow-link outbound">
+                  <div class="flow-pulse pulse-response"></div>
+                </div>
+                <div class="flow-box ui-box">UI</div>
+              </div>
+              <div class="server-stage">
+                <div class="server-stage-label">Server blocks while it fetches and renders</div>
+                <div class="fetch-row">
+                  <span class="fetch-name">Fetch product</span>
+                  <span class="fetch-track"><span class="fetch-fill fill-one"></span></span>
+                </div>
+                <div class="fetch-row">
+                  <span class="fetch-name">Fetch pricing</span>
+                  <span class="fetch-track"><span class="fetch-fill fill-two"></span></span>
+                </div>
+                <div class="fetch-row">
+                  <span class="fetch-name">Fetch reviews</span>
+                  <span class="fetch-track slow"><span class="fetch-fill fill-three"></span></span>
+                </div>
+                <div class="render-row">
+                  <span class="render-chip">Render full UI</span>
+                  <span class="render-chip response-chip">Send HTML response</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow">Step 2</div>
+          <h2>TTFB depends on the slowest API</h2>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span>Server work after request starts</span>
+              <span class="ttfb-badge">first byte only after all of this</span>
+            </div>
+            <div class="lane">
+              <div class="lane-label">Product</div>
+              <div class="bar fast" style="width: 18%">60ms</div>
+            </div>
+            <div class="lane">
+              <div class="lane-label">Pricing</div>
+              <div class="bar medium" style="width: 30%">120ms</div>
+            </div>
+            <div class="lane">
+              <div class="lane-label">Reviews</div>
+              <div class="bar slow" style="width: 72%">430ms</div>
+            </div>
+            <div class="lane">
+              <div class="lane-label">Render</div>
+              <div class="bar render" style="width: 14%; margin-left: 72%">80ms</div>
+            </div>
+            <div class="ttfb-marker" style="left: 89%">
+              <div class="ttfb-line"></div>
+              <div class="ttfb-label">TTFB</div>
+            </div>
+          </div>
+          <div class="formula-row single">
+            <div class="formula">Traditional SSR: <strong>TTFB = slowest blocking API + render time</strong></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow">Step 3</div>
+          <h2>The common workaround: move the slow API to the client</h2>
+          <div class="compare-grid">
+            <div class="compare-card">
+              <h3>Server path</h3>
+              <div class="mini-lane">
+                <div class="mini-label">SSR</div>
+                <div class="mini-bar shell" style="width: 26%">HTML sooner</div>
+                <div class="mini-bar wait" style="width: 52%">skip slow reviews fetch</div>
+              </div>
+              <div class="mini-note">This improves TTFB because the server no longer waits on the slow dependency.</div>
+            </div>
+            <div class="compare-card">
+              <h3>Client path</h3>
+              <div class="mini-lane">
+                <div class="mini-label">CSR</div>
+                <div class="mini-bar wait" style="width: 22%">HTML arrives</div>
+                <div class="mini-bar wait" style="width: 20%">JS boots</div>
+                <div class="mini-bar chunk slow" style="width: 34%">reviews fetch starts later</div>
+              </div>
+              <div class="mini-note">The blocking moved, but the data itself now starts later.</div>
+            </div>
+          </div>
+          <div class="quote-strip">
+            <span>You reduced server blocking.</span>
+            <span>You did not make the slow data fast.</span>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow">Step 4</div>
+          <h2>Why client fetches are a bad trade</h2>
+          <div class="three-col">
+            <div class="pain-card">
+              <h3>Started later</h3>
+              <p>The browser can’t start the fetch until HTML arrives, JS loads, and the component mounts.</p>
+            </div>
+            <div class="pain-card">
+              <h3>Farther from the data</h3>
+              <p>The client is usually farther away from the data center than your server runtime is.</p>
+            </div>
+            <div class="pain-card">
+              <h3>Worse network conditions</h3>
+              <p>Client networks are less predictable, so the same API often feels slower in the browser.</p>
+            </div>
+          </div>
+          <div class="callout-strip">
+            <div class="callout-card">
+              <div class="callout-title">Result</div>
+              <p>You improved TTFB, but content completion got worse.</p>
+            </div>
+            <div class="callout-card accent">
+              <div class="callout-title">Core problem</div>
+              <p>You had to choose between early HTML and server-proximate data fetching.</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow">Step 5</div>
+          <h2>The two broken extremes</h2>
+          <div class="compare-grid">
+            <div class="compare-card">
+              <h3>Traditional SSR</h3>
+              <ul class="tight-list">
+                <li>Data starts early on the server</li>
+                <li>Browser waits for full completion</li>
+                <li>TTFB is dragged right by the slowest API</li>
+              </ul>
+            </div>
+            <div class="compare-card accent">
+              <h3>Client fetch fallback</h3>
+              <ul class="tight-list">
+                <li>TTFB improves</li>
+                <li>Slow data starts later in the browser</li>
+                <li>Important content now lands later overall</li>
+              </ul>
+            </div>
+          </div>
+          <div class="formula-row">
+            <div class="formula">Old SSR optimizes: <strong>completeness before response</strong></div>
+            <div class="formula accent">Client fetch fallback optimizes: <strong>TTFB by deferring work</strong></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow">Step 6</div>
+          <h2>Streaming changes the rule</h2>
+          <div class="two-col">
+            <div>
+              <p>
+                Streaming SSR keeps data fetching on the server, but removes the
+                requirement that the whole page wait for the slowest part.
+              </p>
+              <ol class="tight-list">
+                <li>Start rendering on the server immediately</li>
+                <li>Send the shell as soon as it is ready</li>
+                <li>Keep slow sections behind boundaries</li>
+                <li>Stream resolved HTML later over the same response</li>
+              </ol>
+            </div>
+            <div class="stream-panel large">
+              <div class="stream-title">Mental model</div>
+              <div class="shell-preview">
+                <div class="shell-block top">Header + nav + product details</div>
+                <div class="shell-block main">
+                  Page shell returned early
+                  <div class="placeholder">Reviews loading…</div>
+                </div>
+              </div>
+              <p class="panel-note">Fast content no longer waits for the slow boundary.</p>
+            </div>
+          </div>
+        </section>
+
+        <section data-auto-animate>
+          <div class="eyebrow">Animated model</div>
+          <h2>One pipe, one request, many streamed chunks</h2>
+          <div class="pipe-stage">
+            <div class="pipe-end browser-end">
+              <div class="pipe-label">Browser</div>
+            </div>
+            <div class="pipe">
+              <div class="pipe-core"></div>
+              <div class="pulse request"></div>
+              <div class="pulse response shell"></div>
+              <div class="pulse response chunk-one"></div>
+              <div class="pulse response chunk-two"></div>
+            </div>
+            <div class="pipe-end server-end">
+              <div class="pipe-label">Server</div>
+              <div class="server-glow"></div>
+            </div>
+          </div>
+          <div class="pipe-legend">
+            <div class="legend-chip request">request</div>
+            <div class="legend-chip shell">shell</div>
+            <div class="legend-chip chunk">streamed chunk</div>
+            <div class="legend-chip slow">slow boundary</div>
+          </div>
+          <p class="footnote center">
+            The request goes in once. The response comes back as an early shell, then more HTML chunks over the same connection.
+          </p>
+        </section>
+
+        <section>
+          <div class="eyebrow">Step 7</div>
+          <h2>Before vs streaming</h2>
+          <div class="compare-grid">
+            <div class="compare-card">
+              <h3>Before</h3>
+              <div class="mini-lane">
+                <div class="mini-label">req</div>
+                <div class="mini-bar wait" style="width: 72%">wait for all data</div>
+                <div class="mini-bar html" style="width: 20%">one response</div>
+              </div>
+              <div class="mini-note">Nothing useful crosses the wire until everything is done.</div>
+            </div>
+            <div class="compare-card accent">
+              <h3>Streaming</h3>
+              <div class="mini-lane">
+                <div class="mini-label">req</div>
+                <div class="mini-bar shell" style="width: 24%">shell</div>
+                <div class="mini-bar chunk" style="width: 18%">chunk</div>
+                <div class="mini-bar chunk slow" style="width: 26%">slow chunk</div>
+              </div>
+              <div class="mini-note">TTFB moves left while slow server-side work keeps going.</div>
+            </div>
+          </div>
+          <div class="formula-row">
+            <div class="formula">Before: <strong>first byte waits for page completion</strong></div>
+            <div class="formula accent">After: <strong>first byte waits only for shell readiness</strong></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow">React mechanics</div>
+          <h2>How React does it</h2>
+          <div class="two-col">
+            <div>
+              <ol class="tight-list">
+                <li>Wrap slow UI regions in <code>&lt;Suspense&gt;</code></li>
+                <li>Render fallback UI into the shell</li>
+                <li>Use <code>renderToPipeableStream</code> on the server</li>
+                <li>Flush when <code>onShellReady</code> fires</li>
+                <li>Let resolved boundaries stream and hydrate progressively</li>
+              </ol>
+            </div>
+            <pre class="code-block"><code class="language-js">const { pipe } = renderToPipeableStream(
+  &lt;App /&gt;,
+  {
+    onShellReady() {
+      res.setHeader('content-type', 'text/html');
+      pipe(res);
+    }
+  }
+);</code></pre>
+          </div>
+        </section>
+
+        <section class="closing">
+          <div class="eyebrow">Takeaway</div>
+          <h2>Streaming fixes the false choice</h2>
+          <p class="lede">
+            You no longer have to choose between blocking SSR and late client fetching.
+            Start data work on the server, send useful HTML early, and let slow parts
+            arrive later without holding the page hostage.
+          </p>
+          <div class="closing-banner">
+            <span>Keep fetching close to the data</span>
+            <span>Stop making the whole page wait</span>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="node_modules/reveal.js/dist/reveal.js"></script>
+    <script>
+      Reveal.initialize({
+        hash: true,
+        controls: true,
+        progress: true,
+        center: false,
+        transition: 'slide',
+        backgroundTransition: 'fade'
+      });
+    </script>
+  </body>
+</html>
